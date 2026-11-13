@@ -178,7 +178,9 @@ impl Layout {
     /// The saved dock, if it still has the 3D view (else the default is used).
     pub fn dock(&self) -> Option<DockState<Tab>> {
         let d = self.dock.as_ref()?;
-        let dock = d.map_tabs(|t| t.tab());
+        let mut dock = d.map_tabs(|t| t.tab());
+        // Layouts saved before saved_dock fixed this can point past the end.
+        clamp_active(&mut dock);
         dock.find_tab(&Tab::Viewport).is_some().then_some(dock)
     }
 
@@ -189,6 +191,7 @@ impl Layout {
         for w in &self.popped {
             let mut dock = w.dock.map_tabs(|t| t.tab());
             dock.retain_tabs(|t| *t != Tab::Viewport && main.find_tab(t).is_none() && out.locate(main, t).is_none());
+            clamp_active(&mut dock);
             if dock.iter_all_tabs().next().is_none() || w.key.is_empty() {
                 continue;
             }
@@ -252,6 +255,7 @@ impl Layout {
 /// writes infinity as null and the file then wouldn't load.
 pub fn saved_dock(dock: &DockState<Tab>) -> DockState<SavedTab> {
     let mut d = dock.filter_map_tabs(SavedTab::from_tab);
+    clamp_active(&mut d);
     let fix = |r: &mut egui::Rect| {
         if !r.is_finite() {
             *r = egui::Rect::ZERO;
@@ -276,6 +280,21 @@ pub fn saved_dock(dock: &DockState<Tab>) -> DockState<SavedTab> {
         }
     }
     d
+}
+
+/// Keeps each group's selected tab inside its tab list. egui_dock's
+/// filter_map_tabs / retain_tabs leave `active` as it was, so dropping a
+/// script tab that was selected (the last tab of the 3D view's group) left
+/// the group pointing past its end: it then drew nothing, the 3D view
+/// included, until a new tab filled that slot.
+fn clamp_active<T>(dock: &mut DockState<T>) {
+    for (_, node) in dock.iter_all_nodes_mut() {
+        if let egui_dock::Node::Leaf(l) = node {
+            if l.active.0 >= l.tabs.len() {
+                l.active.0 = l.tabs.len().saturating_sub(1);
+            }
+        }
+    }
 }
 
 /// The panel windows as saved (script tabs aren't kept; a window of only
@@ -411,6 +430,33 @@ mod tests {
 
     /// Popped-out panels survive a save and a restart: tabs, key (app id),
     /// size and position; script tabs aren't kept.
+    /// A script tab selected beside the 3D view isn't saved; the group
+    /// must not keep pointing at it, or the 3D view isn't drawn next start.
+    #[test]
+    fn dropped_script_tab_keeps_viewport_shown() {
+        let mut dock = default_dock();
+        let vp = dock.find_tab(&Tab::Viewport).unwrap();
+        dock[vp.surface][vp.node].append_tab(Tab::Script(rbx_dom_weak::types::Ref::new()));
+        let saved = saved_dock(&dock);
+        let check = |d: &DockState<Tab>| {
+            for (_, n) in d.iter_all_nodes() {
+                if let egui_dock::Node::Leaf(l) = n {
+                    assert!(l.active.0 < l.tabs.len(), "active {} of {:?}", l.active.0, l.tabs);
+                }
+            }
+        };
+        check(&saved.map_tabs(|t| t.tab()));
+        // A file written before the fix: active past the end on load.
+        let mut broken = saved.clone();
+        for (_, n) in broken.iter_all_nodes_mut() {
+            if let egui_dock::Node::Leaf(l) = n {
+                l.active.0 = l.tabs.len();
+            }
+        }
+        let layout = Layout { version: VERSION, dock: Some(broken), ..Default::default() };
+        check(&layout.dock().expect("main dock"));
+    }
+
     #[test]
     fn popped_windows_round_trip() {
         let mut dock = default_dock();
