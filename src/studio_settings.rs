@@ -49,6 +49,18 @@ pub struct ScriptEditor {
     pub text_wrapping: bool,
     /// "Enable Autocomplete".
     pub enable_autocomplete: bool,
+    /// "Show Whitespace": a dot for each space, an arrow for each tab.
+    pub show_whitespace: bool,
+    /// Typing `(`, `[`, `{` or a quote adds its closer after the caret;
+    /// typing the closer steps over it, Backspace in an empty pair deletes
+    /// both (Studio's "Auto Closing Brackets" / "Auto Closing Quotes", as one).
+    pub auto_closing_brackets: bool,
+    /// Enter after a line that opens a block (`then`, `do`, `function(…)`)
+    /// adds the `end`, when the script is missing one, as Studio does.
+    pub auto_insert_end: bool,
+    /// Enter keeps the line's indentation, one level more after a block
+    /// opener (Studio's "Auto Indent Rule", Relative).
+    pub auto_indent: bool,
     pub colors: ScriptColors,
 }
 
@@ -60,6 +72,10 @@ impl Default for ScriptEditor {
             indent_using_spaces: false,
             text_wrapping: false,
             enable_autocomplete: true,
+            show_whitespace: false,
+            auto_closing_brackets: true,
+            auto_insert_end: true,
+            auto_indent: true,
             colors: ScriptColors::default(),
         }
     }
@@ -77,6 +93,8 @@ pub struct ScriptColors {
     pub number: [u8; 3],
     pub comment: [u8; 3],
     pub operator: [u8; 3],
+    /// "Whitespace Color" (Show Whitespace's dots and arrows).
+    pub whitespace: [u8; 3],
 }
 
 impl Default for ScriptColors {
@@ -92,6 +110,7 @@ impl Default for ScriptColors {
             number: [214, 150, 222],
             comment: [118, 126, 140],
             operator: [190, 196, 206],
+            whitespace: [72, 76, 86],
         }
     }
 }
@@ -233,6 +252,18 @@ fn script_editor_ui(ui: &mut egui::Ui, se: &mut ScriptEditor) -> bool {
         ui.label("Enable Autocomplete");
         changed |= ui.checkbox(&mut se.enable_autocomplete, "").changed();
         ui.end_row();
+        ui.label("Show Whitespace");
+        changed |= ui.checkbox(&mut se.show_whitespace, "").changed();
+        ui.end_row();
+        ui.label("Auto Closing Brackets");
+        changed |= ui.checkbox(&mut se.auto_closing_brackets, "").changed();
+        ui.end_row();
+        ui.label("Auto Insert End");
+        changed |= ui.checkbox(&mut se.auto_insert_end, "").changed();
+        ui.end_row();
+        ui.label("Auto Indent");
+        changed |= ui.checkbox(&mut se.auto_indent, "").changed();
+        ui.end_row();
     });
     changed
 }
@@ -249,6 +280,7 @@ fn colors_ui(ui: &mut egui::Ui, c: &mut ScriptColors) -> bool {
             ("Number Color", &mut c.number),
             ("Comment Color", &mut c.comment),
             ("Operator Color", &mut c.operator),
+            ("Whitespace Color", &mut c.whitespace),
         ] {
             ui.label(name);
             changed |= ui.color_edit_button_srgb(v).changed();

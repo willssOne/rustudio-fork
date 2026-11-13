@@ -37,6 +37,7 @@ mod file_dialog;
 mod hypr;
 mod game_settings;
 mod studio_settings;
+mod script_typing;
 mod external_editor;
 mod fbx;
 mod api;

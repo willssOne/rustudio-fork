@@ -455,6 +455,111 @@ fn insert_indent(buf: &mut ScriptBuf, ctx: &egui::Context, id: egui::Id, width: 
     true
 }
 
+/// The caret / selection as a byte range, from the text box's saved state.
+fn selection_bytes(buf: &ScriptBuf, ctx: &egui::Context, id: egui::Id) -> Option<Range<usize>> {
+    let state = egui::TextEdit::load_state(ctx, id)?;
+    let range = state.cursor.char_range()?;
+    let [a, z] = [range.primary.index.0, range.secondary.index.0];
+    let byte = |c: usize| buf.text.char_indices().nth(c).map_or(buf.text.len(), |(b, _)| b);
+    Some(byte(a.min(z))..byte(a.max(z)))
+}
+
+/// Makes an edit from src/script_typing.rs and puts the caret where it says.
+fn apply_edit(buf: &mut ScriptBuf, ctx: &egui::Context, id: egui::Id, e: crate::script_typing::Edit) {
+    buf.text.replace_range(e.range, &e.insert);
+    let caret = buf.text[..e.caret.min(buf.text.len())].chars().count();
+    let mut state = egui::TextEdit::load_state(ctx, id).unwrap_or_default();
+    state.cursor.set_char_range(Some(egui::text::CCursorRange::one(egui::text::CCursor::new(caret))));
+    state.store(ctx, id);
+    buf.edited = Instant::now();
+}
+
+/// This frame's first typed character, Enter or Backspace, done the
+/// Studio Settings way (src/script_typing.rs) instead of the text box's
+/// when one applies: the event is then taken so the text box doesn't see it.
+fn typing_edit(
+    ui: &mut egui::Ui,
+    buf: &mut ScriptBuf,
+    id: egui::Id,
+    se: &crate::studio_settings::ScriptEditor,
+) -> bool {
+    use crate::script_typing as typing;
+    if !(se.auto_closing_brackets || se.auto_insert_end || se.auto_indent) {
+        return false;
+    }
+    let Some(sel) = selection_bytes(buf, ui.ctx(), id) else { return false };
+    let unit = if se.indent_using_spaces { " ".repeat(se.tab_width.max(1) as usize) } else { "\t".into() };
+    let text = &buf.text;
+    let edit = ui.input_mut(|i| {
+        // Other key events (Shift, the key behind a typed character) are
+        // passed over: the first event that edits text decides.
+        let at = i.events.iter().position(|e| match e {
+            egui::Event::Text(_) => true,
+            egui::Event::Key { key: egui::Key::Enter | egui::Key::Backspace, pressed: true, .. } => true,
+            _ => false,
+        })?;
+        let edit = match &i.events[at] {
+            egui::Event::Text(t) if se.auto_closing_brackets => {
+                let mut chars = t.chars();
+                match (chars.next(), chars.next()) {
+                    (Some(c), None) => typing::typed(text, sel.clone(), c),
+                    _ => None,
+                }
+            }
+            egui::Event::Key { key: egui::Key::Enter, modifiers, .. } if modifiers.is_none() => {
+                typing::enter(text, sel.clone(), se.auto_insert_end, se.auto_indent, &unit)
+            }
+            egui::Event::Key { key: egui::Key::Backspace, modifiers, .. }
+                if modifiers.is_none() && se.auto_closing_brackets =>
+            {
+                typing::backspace(text, sel.clone())
+            }
+            _ => None,
+        }?;
+        i.events.remove(at);
+        Some(edit)
+    });
+    match edit {
+        Some(e) => {
+            apply_edit(buf, ui.ctx(), id, e);
+            true
+        }
+        None => false,
+    }
+}
+
+/// Show Whitespace: a dot for each space and an arrow for each tab, over
+/// the rows in view.
+fn paint_whitespace(ui: &egui::Ui, galley: &egui::Galley, at: egui::Pos2, color: Color32) {
+    let clip = ui.clip_rect();
+    let p = ui.painter();
+    for row in &galley.rows {
+        let origin = at + row.pos.to_vec2();
+        let rect = row.rect().translate(at.to_vec2());
+        if rect.max.y < clip.min.y || rect.min.y > clip.max.y {
+            continue;
+        }
+        for g in &row.row.glyphs {
+            let r = g.logical_rect().translate(origin.to_vec2());
+            match g.chr {
+                ' ' => {
+                    p.circle_filled(r.center(), (r.height() * 0.07).max(1.0), color);
+                }
+                '\t' => {
+                    let y = r.center().y;
+                    let (x0, x1) = (r.min.x + 2.0, r.max.x - 2.0);
+                    let h = (r.height() * 0.15).max(2.0);
+                    let s = Stroke::new(1.0, color);
+                    p.line_segment([egui::pos2(x0, y), egui::pos2(x1, y)], s);
+                    p.line_segment([egui::pos2(x1 - h, y - h), egui::pos2(x1, y)], s);
+                    p.line_segment([egui::pos2(x1 - h, y + h), egui::pos2(x1, y)], s);
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
 #[derive(Default)]
 pub struct ScriptTabs {
     pub bufs: HashMap<Ref, ScriptBuf>,
@@ -636,6 +741,10 @@ impl Editor {
                     {
                         changed = true;
                     }
+                    // Closing brackets, `end` and indentation as you type.
+                    if has_focus && rows == 0 && typing_edit(ui, buf, editor_id, &se) {
+                        changed = true;
+                    }
 
                     let out =
                         egui::TextEdit::multiline(&mut buf.text)
@@ -647,6 +756,10 @@ impl Editor {
                             .lock_focus(true)
                             .layouter(&mut layouter)
                             .show(ui);
+
+                    if se.show_whitespace {
+                        paint_whitespace(ui, &out.galley, out.galley_pos, rgb(se.colors.whitespace));
+                    }
 
                     if out.response.changed() {
                         changed = true;
