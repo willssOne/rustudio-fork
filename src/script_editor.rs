@@ -392,6 +392,8 @@ fn autocomplete_popup(ctx: &egui::Context, id: egui::Id, pos: egui::Pos2, ac: &m
                 egui::ScrollArea::vertical()
                     .id_salt("rows")
                     .max_height(row_h * mech::SCRIPT_AUTOCOMPLETE_ROWS as f32)
+                    // As tall as its rows (up to the limit), not the last list's height.
+                    .min_scrolled_height(row_h * ac.items.len().min(mech::SCRIPT_AUTOCOMPLETE_ROWS) as f32)
                     .auto_shrink([true, true])
                     .show(ui, |ui| ui.vertical(|ui| {
                         for (n, item) in ac.items.iter().enumerate() {
@@ -741,8 +743,10 @@ impl Editor {
                     {
                         changed = true;
                     }
-                    // Closing brackets, `end` and indentation as you type.
-                    if has_focus && rows == 0 && typing_edit(ui, buf, editor_id, &se) {
+                    // Closing brackets, `end` and indentation as you type. With
+                    // the popup open too: it took its own keys (Enter, Tab) above,
+                    // and a `(` typed after `FindFirstChild` still gets its `)`.
+                    if has_focus && typing_edit(ui, buf, editor_id, &se) {
                         changed = true;
                     }
 
