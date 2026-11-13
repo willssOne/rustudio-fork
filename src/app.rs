@@ -196,6 +196,13 @@ pub struct Editor {
     pub cloud: crate::cloud_ui::CloudUi,
     /// Scripts to open (or focus) as editor tabs at the end of the frame.
     pub open_script: Vec<Ref>,
+    /// Scripts to open as tabs even when an external editor is set.
+    pub open_script_builtin: Vec<Ref>,
+    /// File > Studio Settings (src/studio_settings.rs): the values, and the window.
+    pub settings: crate::studio_settings::StudioSettings,
+    pub studio_settings: crate::studio_settings::SettingsWindow,
+    /// Scripts mirrored to a folder for the external editor (src/external_editor.rs).
+    pub external: Option<crate::external_editor::Mirror>,
     pub scripts: crate::script_editor::ScriptTabs,
     /// The running Play / Run session, if any.
     pub play: Option<crate::play::PlaySession>,
@@ -399,6 +406,10 @@ impl RustudioApp {
             account: AccountUi::new(),
             cloud: crate::cloud_ui::CloudUi::new(),
             open_script: Vec::new(),
+            open_script_builtin: Vec::new(),
+            settings: Default::default(),
+            studio_settings: Default::default(),
+            external: None,
             scripts: Default::default(),
             play: None,
             fixed_dt: None,
@@ -496,6 +507,9 @@ impl RustudioApp {
             ed.account.restore();
         }
         if let Some((u, p)) = ed.harness.team_create { ed.open_team_create(u, p); }
+        if ed.harness.keeps_studio_settings() {
+            ed.settings = crate::studio_settings::load();
+        }
         ed.cloud.open_when_ready = ed.harness.open_roblox.map(|(p, copy)| (p, None, copy));
         ed.cloud.picker_when_ready = ed.harness.roblox_picker;
         ed.cloud.settings_open = ed.harness.roblox_settings;
@@ -599,6 +613,8 @@ impl Editor {
         self.drag = None;
         self.hover = None;
         self.open_script.clear();
+        self.open_script_builtin.clear();
+        self.external = None;
         self.scripts = Default::default();
         self.explorer = ExplorerState::default();
         self.explorer.expand_defaults(&self.doc);
@@ -1522,7 +1538,12 @@ impl Editor {
     /// Opens requested scripts as tabs next to the viewport (or focuses
     /// them, in a panel window too).
     fn open_script_tabs(&mut self, dock: &mut DockState<Tab>, panels: &mut crate::panels::Panels) {
-        for r in std::mem::take(&mut self.open_script) {
+        let mut open = std::mem::take(&mut self.open_script);
+        if self.settings.external_editor.enabled {
+            open.retain(|r| !self.open_script_external(*r));
+        }
+        open.append(&mut self.open_script_builtin);
+        for r in open {
             let tab = Tab::Script(r);
             if let Some(w) = panels.popped.iter_mut().find(|w| w.dock.find_tab(&tab).is_some()) {
                 if let Some(at) = w.dock.find_tab(&tab) {
@@ -1862,6 +1883,7 @@ impl eframe::App for RustudioApp {
         }
         self.watchdog.stage("Play tick", "project and scene synchronization");
         ed.project_tick();
+        ed.external_tick();
         // A folder with several project files: which one to open.
         if let Some((dir, files)) = ed.project_choice.clone() {
             let mut pick = None;
@@ -1888,6 +1910,7 @@ impl eframe::App for RustudioApp {
             }
         }
         ed.project_windows(&ctx);
+        ed.studio_settings_window(&ctx);
         ed.sync_explorer_to_selection();
         {
             let _p = crate::bench::scope("scene_sync");

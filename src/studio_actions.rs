@@ -79,6 +79,7 @@ impl Editor {
             "save" | "save_as" | "save_roblox" | "publish" => (edit, None),
             "export_project" => (edit, None),
             "project_settings" => (edit && self.project.is_some(), None),
+            "studio_settings" => (true, None),
             "experience_settings" | "account" | "add_account" => (true, None),
             "live_collaborators" | "invite_collaborators" => (true,None),
             "avatar_settings" => (true, open("Avatar Settings")),
@@ -186,6 +187,7 @@ impl Editor {
             "open_folder" => self.request(PendingAction::OpenFolder),
             "export_project" => self.open_export_dialog(),
             "project_settings" => self.open_settings_dialog(),
+            "studio_settings" => self.open_studio_settings(),
             "open_roblox" => {
                 self.cloud.open = true;
                 let client = self.account.shared_client();

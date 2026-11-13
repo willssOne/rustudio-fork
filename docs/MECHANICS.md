@@ -208,6 +208,12 @@ by id.
 | Undo history | 500 steps | estimated |
 | Merge window for repeated edits of the same property | 700 ms | estimated |
 
+## Script editor
+
+| Value | Number | Source |
+|---|---|---|
+| Autocomplete rows shown before the list scrolls (also the PageUp / PageDown step) | 8 | estimated, not measured in Studio |
+
 ## Performance (measured on og.rbxl, 50 828 parts, 1265×900, Radeon RX 9070 XT)
 
 | Value | Number | Source |

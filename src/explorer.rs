@@ -538,6 +538,7 @@ impl Editor {
             actions.push(RowAction::Reparent(p.0.clone(), target));
         }
         let script = matches!(class.as_str(), "Script" | "LocalScript" | "ModuleScript");
+        let external = self.settings.external_editor.enabled;
         let can_paste = self.clipboard.is_some();
         resp.context_menu(|ui| {
             ui.set_min_width(200.0);
@@ -624,6 +625,11 @@ impl Editor {
                 ui.separator();
                 if item(ui, "Edit Source", true) {
                     actions.push(RowAction::OpenScript(r));
+                    ui.close();
+                }
+                // With an external editor set, "Edit Source" opens that.
+                if external && item(ui, "Edit Source in rustudio", true) {
+                    actions.push(RowAction::OpenScriptBuiltin(r));
                     ui.close();
                 }
             }
@@ -720,6 +726,7 @@ impl Editor {
             RowAction::OpenScript(r) => {
                 self.open_script.push(r);
             }
+            RowAction::OpenScriptBuiltin(r) => self.open_script_builtin.push(r),
         }
     }
 }
@@ -739,6 +746,7 @@ enum RowAction {
     Action(&'static str),
     SelectChildren(Ref),
     OpenScript(Ref),
+    OpenScriptBuiltin(Ref),
 }
 
 #[cfg(test)]

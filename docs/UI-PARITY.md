@@ -37,7 +37,7 @@ Folder… (round 15's project folders).
 
 | Menu | Works in rustudio | Disabled (not yet) | Status |
 |---|---|---|---|
-| File | New, Open from File, Open from Roblox (account window), Open Folder…, Recent (real list, ~/.config/rustudio/recent.txt), Close Place (to a new place: rustudio has no start page), Import Roblox Model, Save to File (As), Save to Roblox (As), Publish (As), Avatar Settings, About rustudio, Exit | Import (3D importer), Export as .obj / glTF, Manage Audience, Experience Settings, Open Configs, Studio Settings, Beta Features, Customize Shortcuts, Open Auto Saves | done |
+| File | New, Open from File, Open from Roblox (account window), Open Folder…, Recent (real list, ~/.config/rustudio/recent.txt), Close Place (to a new place: rustudio has no start page), Import Roblox Model, Save to File (As), Save to Roblox (As), Publish (As), Avatar Settings, Studio Settings (Alt+S; Script Editor settings only so far, plus rustudio's External Editor: src/studio_settings.rs), About rustudio, Exit | Import (3D importer), Export as .obj / glTF, Manage Audience, Experience Settings, Open Configs, Beta Features, Customize Shortcuts, Open Auto Saves | done |
 | Edit | Undo, Redo, Cut, Copy, Paste, Paste Into (Ctrl+Shift+V), Paste at Original Location and Paste into at Original Location (rustudio's paste keeps positions, so they equal Paste / Paste Into), Duplicate, Delete, Group as Model (Ctrl+G), Group as Folder (Ctrl+Alt+G), Ungroup, Lock Selection (Alt+L), Unlock All, Anchor Selection (Alt+A), Select All (Workspace's children) | Lock Tool, Anchor Tool, Convert to Package, Get Latest Package, Save as Default Instance, Format Document / Selection, Indent, Unindent | done |
 | View | Zoom In / Out (UI zoom), Full Screen (F11), Show Grid (Alt+G) and 2 / 4 / 16 studs, Show UI, Screenshot (to ~/Pictures), Mute | Show View Selector, Show Wind Direction, Show Grid Material, Show Wireframe Rendering, Show Welds, Show Constraint Details, Expand / Collapse Script Folds, Toggle Comment | done |
 | Plugins | — | Manage Plugins, Plugins Folder, Save as Local Plugin, Publish as Plugin (rustudio runs no Studio plugins; the person's own Dervex Tools / Place B Weathering entries are not listed) | done (disabled) |
@@ -163,3 +163,19 @@ pair in `checks/ui/side-output.png`.
 | Context bar | green (0, 204, 103) for server lines (Run included), blue (52, 154, 213) for client lines; none on stack lines | the same | done |
 | Toolbar | All Messages, All Contexts, Filter…, clear, ⋯ | the same; ⋯ holds Show Timestamp / Show Context / Show Source | done |
 | Line pitch | 15 px | 15 px | done |
+
+## Script editor autocomplete
+
+Not captured side by side yet: built from Studio's documented behaviour and
+the API dump (`api-dump.json`); the engine is `src/script_complete.rs`, the
+popup `src/script_editor.rs`.
+
+| Item | Studio | rustudio | Status |
+|---|---|---|---|
+| When it opens | while typing a name, after `.` / `:`, inside GetService / Instance.new / FindFirstChild… strings; Ctrl+Space anywhere | the same; nothing in comments, numbers, or while naming a new local / function / loop variable | partial (unmeasured) |
+| Keys | ↑ ↓ move, Enter / Tab insert, Esc closes, click inserts | the same, plus PageUp / PageDown | partial (unmeasured) |
+| Members | the class's script-usable members from the API reflection (methods after `:`, properties and events after `.`), children by name | the same from the API dump: Security None, not Deprecated / Hidden / NotScriptable | done |
+| Types | follows properties, return types, GetService / FindFirstChild / WaitForChild, Instance.new, datatypes, enums, signals; locals from their declarations and `:Connect` callbacks | the same, without scopes (a local stays offered after its block) | partial |
+| Matching and order | prefix first, A–Z | prefix first, then a later word of the name (`child` → FindFirstChild); A–Z; the place's own services first in GetService | partial (unmeasured) |
+| Signature beside the list | the highlighted item's signature and description | signature only (the dump has no descriptions) | partial |
+| Icons | per kind | class icons for instances, classes and services; a lettered badge per kind otherwise (rustudio's own art) | partial |

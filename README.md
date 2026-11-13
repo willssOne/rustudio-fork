@@ -26,6 +26,8 @@ quite yet.
 - **Editor:** Explorer, Properties, Output, script tabs, move/scale/rotate
   tools with drag duplication and selection rotation, pop-out panels, terrain
   brushes and threaded generation, undo/redo, and Studio's menus and shortcuts.
+  File > Studio Settings sets up the script editor, or opens scripts in your
+  own editor (VS Code, Zed, Neovim or any command) and syncs the changes back.
 - **Files:** `.rbxl` / `.rbxlx` places and `.rbxm` / `.rbxmx` models, plus
   project folders (`*.project.json` with plain files as the source of truth,
   Rojo/Argon sync rules, `sourcemap.json`, and File > Save as Project

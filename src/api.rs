@@ -40,6 +40,28 @@ pub struct Member {
     pub category: String,
     /// Tagged Hidden or NotBrowsable: never listed in Properties.
     pub hidden: bool,
+    /// Tagged Hidden or NotScriptable: not offered by script autocomplete.
+    pub script_hidden: bool,
+    /// A property's ValueType or a function's ReturnType: (Category, Name),
+    /// e.g. ("Class", "Instance"), ("DataType", "Vector3"), ("Primitive", "bool").
+    pub value_type: Option<(String, String)>,
+    /// A function's, event's or callback's parameters.
+    pub params: Vec<Param>,
+}
+
+#[derive(Clone, Debug)]
+pub struct Param {
+    pub name: String,
+    /// (Category, Name) as for `Member::value_type`.
+    pub ty: (String, String),
+    /// The dump's default, as text ("false", "nil"…).
+    pub default: Option<String>,
+}
+
+/// A dump type (`{"Category": …, "Name": …}`) as (Category, Name).
+fn type_ref(v: Option<&serde_json::Value>) -> Option<(String, String)> {
+    let v = v?;
+    Some((v.get("Category")?.as_str()?.to_string(), v.get("Name")?.as_str()?.to_string()))
 }
 
 #[derive(Debug, Default)]
@@ -50,6 +72,8 @@ pub struct Class {
     pub order: Vec<String>,
     pub creatable: bool,
     pub service: bool,
+    /// Tagged Deprecated.
+    pub deprecated: bool,
 }
 
 #[derive(Debug, Default)]
@@ -99,6 +123,7 @@ pub fn parse(text: &str) -> Option<Api> {
                 .map(str::to_string),
             creatable: !tags.contains(&"NotCreatable") && !tags.contains(&"Service"),
             service: tags.contains(&"Service"),
+            deprecated: tags.contains(&"Deprecated"),
             ..Default::default()
         };
         for m in c.get("Members").and_then(|m| m.as_array()).into_iter().flatten() {
@@ -146,6 +171,21 @@ pub fn parse(text: &str) -> Option<Api> {
                         .unwrap_or("")
                         .to_string(),
                     hidden: mtags.contains(&"Hidden") || mtags.contains(&"NotBrowsable"),
+                    script_hidden: mtags.contains(&"Hidden") || mtags.contains(&"NotScriptable"),
+                    value_type: type_ref(m.get("ValueType").or_else(|| m.get("ReturnType"))),
+                    params: m
+                        .get("Parameters")
+                        .and_then(|p| p.as_array())
+                        .into_iter()
+                        .flatten()
+                        .filter_map(|p| {
+                            Some(Param {
+                                name: p.get("Name")?.as_str()?.to_string(),
+                                ty: type_ref(p.get("Type"))?,
+                                default: p.get("Default").and_then(|d| d.as_str()).map(str::to_string),
+                            })
+                        })
+                        .collect(),
                 },
             );
         }

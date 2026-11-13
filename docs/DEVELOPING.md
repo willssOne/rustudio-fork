@@ -67,6 +67,8 @@ plays it for 5 s and records the average and 1%-low frame times.
 | `src/runtime.rs`, `src/ltypes.rs` | Luau runtime: Instance API, signals, scheduler; Roblox datatypes |
 | `src/play.rs`, `src/physics.rs` | Play / Run / Stop, character, rapier3d physics; `physics::move_humanoid` is Studio's Humanoid controller (floor rays, hip spring, body box; docs/MECHANICS.md "Round 22") |
 | `src/script_editor.rs` | script tabs: highlighting, line numbers, syntax check |
+| `src/studio_settings.rs` | File > Studio Settings (Alt+S): the user's editor preferences, kept in `~/.config/rustudio/studio-settings.json`; its module doc says how to add a setting |
+| `src/external_editor.rs` | opening scripts in another editor (VS Code, Zed, Neovim, any command): project files directly, other scripts through a two-way synced folder with a `sourcemap.json` |
 | `src/replicate.rs` | server → client copy and per-frame replication |
 | `src/rig.rs`, `src/avatar.rs` | R15 / R6 rigs, posing from Motor6D.Transform, states; avatar loading and dressing |
 | `src/default_scripts.rs` | Roblox's default player / character scripts, read from the Studio install at Play |

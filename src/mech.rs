@@ -229,6 +229,9 @@ pub const NEON_SEE_THROUGH_MAX: f32 = 1.2; // at most this much glow per channel
 pub const UNDO_LIMIT: usize = 500;
 pub const UNDO_MERGE_MS: u64 = 700;
 
+// Script editor
+pub const SCRIPT_AUTOCOMPLETE_ROWS: usize = 8; // autocomplete rows shown before the list scrolls; also the PageUp / PageDown step (estimated, not measured in Studio)
+
 // Harness
 pub const SCREENSHOT_FRAMES: u64 = 120;
 
